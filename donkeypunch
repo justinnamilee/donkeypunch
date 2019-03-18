@@ -1,0 +1,264 @@
+#!/usr/bin/env bash
+
+####################
+#>donkey<3.0>punch<#
+#######################
+#                     #
+# Author:  Justin Lee #
+# Date:    2019-03-08 #
+# Version: 3.0        #
+# License: beerware   #
+#                     #
+####################################################
+#                                                  #
+# donkeypunch:                                     #
+#                                                  #
+#   This service-oriented SSH reverse relay script #
+#   will keep a hole punched in any network that   #
+#   does not explicitly filter your relay gateway  #
+#   IP address or the port you choose to exit on.  #
+#   This is useful when you need to access a       #
+#   computer behind a firewall or use it like a    #
+#   VPN end-point because your netadmin still      #
+#   hasn't gotten around to getting you that VPN   #
+#   access you need!                               #
+#                                                  #
+####################################################
+
+
+sleep 1
+
+
+##
+# the best kind of trap
+
+trap service_stop SIGTERM
+
+##
+# exit codes
+
+_SERVICE_STOP=0    # good & stop
+_SERVICE_FAIL=1    # bad & stop
+_SERVICE_RESTART=7 # bad & restart
+
+
+##
+# logging to syslog incase run stand alone
+
+_LOG="`which logger` --id=$$ --tag `basename $0` -p daemon.info" 
+
+$_LOG "Never forget to punch that donkey!"
+
+
+##
+# look for our source file
+
+if [ -r $_ENV ]; then
+
+	$_LOG "Loading environment file [$_ENV]."
+
+	# load that source file, yo
+	source $_ENV
+else
+
+	$_LOG "Unable to load environment file [$_ENV]."
+
+	# don't try to restart the service
+	exit $_SERVICE_FAIL;
+fi
+
+
+##
+# script config vars
+
+_DEL=3                     # Delay between process checks.
+_SCR=`basename $0`         # Get running script name.
+_LCK="$_SCR-$_NAM"         # Generate name for lock & count files.
+_CNT="/var/run/$_LCK.cnt"  # Run count file, tracks connection attempts.
+_PID="/var/run/$_LCK.pid"  # Run PID lock file.
+_SSH="`which ssh` $_OPT"   # Build SSH command with sourced options.
+_DBG=                      # Set to 1 for debugging, clear for none.
+
+
+##
+# functions
+
+function chk_pid
+{
+	# is the process alive and well?
+	[ $1 ] && kill -0 $1 > /dev/null 2>&1
+}
+
+function set_pid
+{
+	# save pid lock file
+	echo $1 > $_PID
+}
+
+function get_pid
+{
+	# get PID from lock file
+	cat $_PID 2>/dev/null
+}
+
+function set_count
+{
+	# set the count file
+	echo $1 > $_CNT
+}
+
+function get_count
+{
+	# get the current count from the count file
+	cat $_CNT 2>/dev/null
+}
+
+
+##
+# misc functions
+
+function has_rw
+{
+	[ -r $1 ] && [ -w $1 ]
+}
+
+function dne_or_has_rw
+{
+	[ ! -e $1 ] || has_rw $1
+}
+
+function debug
+{
+	if [ $_DBG ]; then
+
+		$_LOG "DEBUG: $1"
+	fi
+}
+
+
+##
+# trapped SIGTERM does clean up on service stop
+
+function service_stop
+{
+	debug "Here we are again, just the two of us..."
+
+	# shit to do before we stop the service
+	rm $_PID > /dev/null 2>&1
+	rm $_CNT > /dev/null 2>&1
+
+	# call exit when done with our stop code
+	exit $_SERVICE_STOP
+}
+
+
+## 
+# start up checks!
+
+if dne_or_has_rw $_CNT && dne_or_has_rw $_PID; then
+
+	# if run as root this first check always passes
+	debug "CHECK: [$_CNT] and [$_PID] are ready."
+
+	if [ -z `which ssh` ]; then
+
+		# just some basic checks... you know
+		$_LOG "You'll be needed SSH, bud."
+
+		# don't try to restart
+		exit $_SERVICE_FAIL
+	fi
+else
+
+	$_LOG "Someone else has our locks, cannot proceed."
+
+	# don't try to restart
+	exit $_SERVICE_FAIL
+fi
+
+
+##
+# check for "startup mode" / new instance
+
+debug "Lock file [$(! get_pid)].  (Blank means no file found.)"
+
+
+if [ ! -e $_PID ]; then
+
+	set_count 1
+
+	$_LOG "Initializing first connection to relay [$_NAM:$_GWA]."
+else
+
+	if chk_pid $(get_pid); then
+
+		# the connection is still up? nothing to do
+		$_LOG "Connection [$_NAM:$_GWA] still alive [$(get_pid)]...quiting."
+
+		# do not try to restart service
+		exit $_SERVICE_STOP
+	else
+
+		# connection died, time to fire it up again
+		COUNT=$(get_count)
+		COUNT=$((COUNT+1))
+
+
+		# save updated connection count
+		set_count $COUNT
+
+		$_LOG "Reconnecting to relay [$_NAM:$_GWA]: $COUNT connections since service (re)loaded."
+	fi
+fi
+
+
+##
+# punch that donkey and save the PID
+
+$_SSH -i $_SID -R $_GWF:$_FWA:$_FWP -p $_GWP \
+	$_USR@$_GWA & 
+
+debug "SSH: $_SSH -i $_SID -R $_GWF:$_FWA:$_FWP -p $_GWP $_USR@$_GWA &"
+
+set_pid $!
+sleep $_DEL
+
+debug "PID: $(get_pid)"
+
+
+##
+# check connection status
+
+if chk_pid $(get_pid); then
+
+	$_LOG "Forked relay [$_NAM:$_GWA] to background [$(get_pid)]."
+
+	while [ 1 ]; do
+
+		if chk_pid $(get_pid); then
+
+			# it's still alive so have a nap
+			sleep $_DEL
+
+			debug "POLL: Checking for relay [$_NAM:$_GWA]."
+		else
+
+			$_LOG "Relay [$_NAM:$_GWA] no longer running...restarting."
+
+			# ssh connection failed
+			# break out of poll loop
+			break
+		fi
+	done
+else
+
+	# initial ssh connection failed
+	$_LOG "Relay [$_NAM:$_GWA] failed to start...restarting."
+fi
+
+
+##
+# send the exit code
+
+exit $_SERVICE_RESTART
+

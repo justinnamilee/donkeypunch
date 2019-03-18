@@ -1,0 +1,25 @@
+
+  # # # # # # # # # # # # # # # # # # #
+  #                                   #
+  #   donkeypunch@.service template   #
+  #                                   #
+  # # # # # # # # # # # # # # # # # # #
+
+
+[Unit]
+Description=DonkeyPunch [%I]
+Wants=network-online.target
+After=network.target network-online.target
+
+[Service]
+# do /etc/default/donkeypunch@yourhost for example
+Environment=_ENV=/etc/default/donkeypunch@%i
+ExecStart=/usr/local/bin/donkeypunch
+RestartSec=45
+Restart=on-failure
+# exit status 1 is service failure, do not restart
+RestartPreventExitStatus=1
+
+[Install]
+WantedBy=multi-user.target
+

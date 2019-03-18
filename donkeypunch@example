@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+
+  # # # # # # # # # # # # # # # #
+  #                             #
+  # donkeypunch@example default #
+  #                             #
+  # # # # # # # # # # # # # # # #
+
+
+# # # #
+# required script options:
+
+_NAM=example_service         # Unique name for this config.
+_STO=/etc/ssh/relay          # SSH storage directory for KnownHosts and ID.
+_KNH=$_STO/known_hosts       # SSH known hosts, remove _OPT line to disable.
+_SID=$_STO/relay.id.ed25519  # SSH relay key, put yours here.
+_USR=ssh-relay-user          # SSH relay username, setup restricted account.
+_GWA=sshsrv.example.com      # SSH relay IP address.
+_GWP=22                      # SSH relay SSH port.
+_GTO=60                      # SSH relay alive interval.
+_GWF=10022                   # SSH relay forward port, where we forward to.
+_FWA=localhost               # SSH host to forward (us in this case).
+_FWP=22                      # SSH host port to forward, default is SSH port.
+
+
+# # # #
+#
+# default ssh command options:
+#
+#  - ExitOnForwardFailure: cause ssh connection to fail without port forward
+#  - UserKnownHostsFile: allows host-based authentication to still be honored
+#  - ServerAliveInterval: give us some breathing room, but not too much
+#  - n: prevent reading from STDIN
+#  - x: disable X11 forwarding, enable if needed
+#  - N: do not execute remote command
+#  - T: do not allocate pseudo-terminal 
+
+_OPT=\
+"
+    -o ExitOnForwardFailure=yes
+    -o UserKnownHostsFile=$_KNH
+    -o ServerAliveInterval=$_GTO
+
+    -nxNT
+"
+
+
+
+# # # #
+# clean up the multiline $_OPT to single line $_OPT
+
+_OPT=`echo $_OPT | sed -E 's/(\s|\r|\n)+/ /g'`
+
