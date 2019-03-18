@@ -9,7 +9,7 @@ DonkeyPunch is a `systemd` service that keeps a reverse SSH tunnelled port open 
 - Next `chmod +x /usr/local/bin/donkeypunch` to make it executable or whatever.
 
 
-## `donkeypunch@.server`
+## `donkeypunch@.service`
 - Install this service template in the `/etc/systemd/system` folder or whatever.
 
 
