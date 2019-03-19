@@ -45,7 +45,7 @@ _SERVICE_RESTART=7 # bad & restart
 ##
 # logging to syslog incase run stand alone
 
-_LOG="`which logger` --id=$$ --tag `basename $0` -p daemon.info" 
+_LOG="$(which logger) --id=$$ --tag $(basename $0) -p daemon.info" 
 
 $_LOG "Never forget to punch that donkey!"
 
@@ -71,23 +71,18 @@ fi
 ##
 # script config vars
 
-_DEL=3                     # Delay between process checks.
-_SCR=`basename $0`         # Get running script name.
-_LCK="$_SCR-$_NAM"         # Generate name for lock & count files.
-_CNT="/var/run/$_LCK.cnt"  # Run count file, tracks connection attempts.
-_PID="/var/run/$_LCK.pid"  # Run PID lock file.
-_SSH="`which ssh` $_OPT"   # Build SSH command with sourced options.
-_DBG=                      # Set to 1 for debugging, clear for none.
+_DEL=5                    # Delay between process checks.
+_TRK=500                  # Display a poll every 500 naps (based on $_DEL)
+_SCR=$(basename $0)       # Get running script name.
+_LCK="$_SCR-$_NAM"        # Generate name for lock & count files.
+_CNT="/var/run/$_LCK.cnt" # Run count file, tracks connection attempts.
+_PID="/var/run/$_LCK.pid" # Run PID lock file.
+_SSH="$(which ssh) $_OPT" # SSH command.
+_DBG=                     # Set to 1 for debugging, clear for none.
 
 
 ##
 # functions
-
-function chk_pid
-{
-	# is the process alive and well?
-	[ $1 ] && kill -0 $1 > /dev/null 2>&1
-}
 
 function set_pid
 {
@@ -99,6 +94,25 @@ function get_pid
 {
 	# get PID from lock file
 	cat $_PID 2>/dev/null
+}
+
+function chk_pid
+{
+	CHECK=$(get_pid)
+
+	# is the process alive and well?
+	[ $CHECK ] && kill -0 $CHECK > /dev/null 2>&1
+}
+
+function upt_pid
+{
+	# get the uptime for the PID
+	ps --no-headers -o etime -p $(get_pid) 2>/dev/null | sed -E 's/\s+//g'
+}
+
+function get_name
+{
+	"$_NAM@$_GWA"
 }
 
 function set_count
@@ -131,7 +145,7 @@ function debug
 {
 	if [ $_DBG ]; then
 
-		$_LOG "DEBUG: $1"
+		$_LOG "<DEBUG> $1"
 	fi
 }
 
@@ -141,8 +155,6 @@ function debug
 
 function service_stop
 {
-	debug "Here we are again, just the two of us..."
-
 	# shit to do before we stop the service
 	rm $_PID > /dev/null 2>&1
 	rm $_CNT > /dev/null 2>&1
@@ -155,22 +167,20 @@ function service_stop
 ## 
 # start up checks!
 
+# check for read/write on our lock files
 if dne_or_has_rw $_CNT && dne_or_has_rw $_PID; then
 
-	# if run as root this first check always passes
-	debug "CHECK: [$_CNT] and [$_PID] are ready."
+	# just some basic checks... you know
+	if [ -z $(which ssh) ]; then
 
-	if [ -z `which ssh` ]; then
-
-		# just some basic checks... you know
-		$_LOG "You'll be needed SSH, bud."
+		$_LOG "You'll be needing SSH, bud."
 
 		# don't try to restart
 		exit $_SERVICE_FAIL
 	fi
 else
 
-	$_LOG "Someone else has our locks, cannot proceed."
+	$_LOG "Someone else has our lock files, cannot proceed."
 
 	# don't try to restart
 	exit $_SERVICE_FAIL
@@ -180,34 +190,30 @@ fi
 ##
 # check for "startup mode" / new instance
 
-debug "Lock file [$(! get_pid)].  (Blank means no file found.)"
-
-
 if [ ! -e $_PID ]; then
 
 	set_count 1
 
-	$_LOG "Initializing first connection to relay [$_NAM:$_GWA]."
+	$_LOG "Initializing first connection to relay [$(get_name)]."
 else
 
-	if chk_pid $(get_pid); then
+	if chk_pid; then
 
 		# the connection is still up? nothing to do
-		$_LOG "Connection [$_NAM:$_GWA] still alive [$(get_pid)]...quiting."
+		$_LOG "Connection [$(get_name)] still alive at [$(get_pid)]."
 
-		# do not try to restart service
+		# do not try to restart this service instance
 		exit $_SERVICE_STOP
 	else
 
-		# connection died, time to fire it up again
+		# connection no longer running, time to fire it up again
 		COUNT=$(get_count)
 		COUNT=$((COUNT+1))
-
 
 		# save updated connection count
 		set_count $COUNT
 
-		$_LOG "Reconnecting to relay [$_NAM:$_GWA]: $COUNT connections since service (re)loaded."
+		$_LOG "Reconnecting to relay [$(get_name)]: $COUNT connections this session."
 	fi
 fi
 
@@ -215,41 +221,55 @@ fi
 ##
 # punch that donkey and save the PID
 
-$_SSH -i $_SID -R $_GWF:$_FWA:$_FWP -p $_GWP \
-	$_USR@$_GWA & 
+$_SSH -i $_SID -R $_GWF:$_FWA:$_FWP -p $_GWP $_USR@$_GWA &
 
-debug "SSH: $_SSH -i $_SID -R $_GWF:$_FWA:$_FWP -p $_GWP $_USR@$_GWA &"
-
+# save pid and have a nap
 set_pid $!
 sleep $_DEL
 
+# some debug info
+debug "COMMAND: $_SSH -i $_SID -R $_GWF:$_FWA:$_FWP -p $_GWP $_USR@$_GWA &"
 debug "PID: $(get_pid)"
+debug "UPTIME: $(upt_pid)"
 
 
 ##
-# check connection status
+# track and check connection status
 
-if chk_pid $(get_pid); then
+if chk_pid; then
 
-	$_LOG "Forked relay [$_NAM:$_GWA] to background [$(get_pid)]."
+	$_LOG "Forked relay [$(get_name)] to background [$(get_pid)]."
 
-	while [ 1 ]; do
+	TRACK=0
 
-		if chk_pid $(get_pid); then
+	# poll forever on SSH PID
+	while chk_pid; do
 
-			# it's still alive so have a nap
-			sleep $_DEL
+		# it's still alive so have a nap
+		sleep $_DEL
 
-			debug "POLL: Checking for relay [$_NAM:$_GWA]."
+		# update tracker info
+		TRACK=$((TRACK+1))
+		POLL="POLL: Relay alive [$(get_name)] for [$(upt_pid)] at [$(get_pid)]."
+
+		# check if we need to log it or debug log it
+		if [ $TRACK -ge $_TRK ]; then
+
+			# reset counter
+			TRACK=0
+
+			# log poll
+			$_LOG "$POLL"
 		else
 
-			$_LOG "Relay [$_NAM:$_GWA] no longer running...restarting."
-
-			# ssh connection failed
-			# break out of poll loop
-			break
+			# defaults to debug log every $_DEL seconds
+			debug "$POLL"
 		fi
 	done
+
+	# ssh connection failed
+	# break out of poll loop
+	$_LOG "Relay [$_NAM:$_GWA] no longer running...restarting."
 else
 
 	# initial ssh connection failed
@@ -258,7 +278,6 @@ fi
 
 
 ##
-# send the exit code
+# relay died or failed to start, try again
 
 exit $_SERVICE_RESTART
-
