@@ -46,9 +46,24 @@ _SERVICE_RESTART=7 # bad & restart
 ##
 # logging to syslog incase run stand alone
 
-_LOG="$(which logger) --id=$$ --tag $(basename $0) -p daemon.info" 
+# logging command to run
+_LOG="$(which logger) --id=$$ --tag $(basename $0)"
 
-$_LOG "Never forget to punch that donkey!"
+# logging functions
+function debug {
+
+	if [ $_DBG ]; then
+
+		$_LOG -p daemon.debug "<DEBUG> $1"
+	fi
+}
+
+function error { $_LOG -p daemon.err "<ERROR> $1"; }
+function log { $_LOG -p daemon.info "$1"; }
+
+
+# our tag line
+log "Never forget to punch that donkey!"
 
 
 ##
@@ -56,13 +71,13 @@ $_LOG "Never forget to punch that donkey!"
 
 if [ -r $_ENV ]; then
 
-	$_LOG "Loading environment file [$_ENV]."
+	debug "ENVIRONMENT: $_ENV"
 
 	# load that source file, yo
 	source $_ENV
 else
 
-	$_LOG "Unable to load environment file [$_ENV]."
+	error "Unable to load environment file [$_ENV]."
 
 	# don't try to restart the service
 	exit $_SERVICE_FAIL;
@@ -142,14 +157,6 @@ function dne_or_has_rw
 	[ ! -e $1 ] || has_rw $1
 }
 
-function debug
-{
-	if [ $_DBG ]; then
-
-		$_LOG "<DEBUG> $1"
-	fi
-}
-
 
 ##
 # trapped SIGTERM does clean up on service stop
@@ -174,14 +181,14 @@ if dne_or_has_rw $_CNT && dne_or_has_rw $_PID; then
 	# just some basic checks... you know
 	if [ -z $(which ssh) ]; then
 
-		$_LOG "You'll be needing SSH, bud."
+		error "SSH not found on system."
 
 		# don't try to restart
 		exit $_SERVICE_FAIL
 	fi
 else
 
-	$_LOG "Someone else has our lock files, cannot proceed."
+	error "Unable to open lock files [$_CNT] and [$_PID]."
 
 	# don't try to restart
 	exit $_SERVICE_FAIL
@@ -195,13 +202,13 @@ if [ ! -e $_PID ]; then
 
 	set_count 1
 
-	$_LOG "Initializing first connection to relay [$(get_name)]."
+	log "Initializing first connection to relay [$(get_name)]."
 else
 
 	if chk_pid; then
 
 		# the connection is still up? nothing to do
-		$_LOG "Connection [$(get_name)] still alive at [$(get_pid)]."
+		log "Connection [$(get_name)] still alive at [$(get_pid)]."
 
 		# do not try to restart this service instance
 		exit $_SERVICE_STOP
@@ -213,7 +220,7 @@ else
 		# save updated connection count
 		set_count $COUNT
 
-		$_LOG "Reconnecting to relay [$(get_name)]: $COUNT connections this session."
+		log "Reconnecting to relay [$(get_name)]: $COUNT connections this session."
 	fi
 fi
 
@@ -238,7 +245,7 @@ debug "UPTIME: $(upt_pid)"
 
 if chk_pid; then
 
-	$_LOG "Forked relay [$(get_name)] to background [$(get_pid)]."
+	log "Forked relay [$(get_name)] to background [$(get_pid)]."
 
 	# setup space for tracking varaible
 	TRACK=0
@@ -260,7 +267,7 @@ if chk_pid; then
 			TRACK=0
 
 			# log poll
-			$_LOG "$POLL"
+			log "$POLL"
 		else
 
 			# defaults to debug log every $_DEL seconds
@@ -270,11 +277,11 @@ if chk_pid; then
 
 	# ssh connection failed
 	# break out of poll loop
-	$_LOG "Relay [$_NAM:$_GWA] no longer running...restarting."
+	error "Relay [$_NAM:$_GWA] no longer running...restarting."
 else
 
 	# initial ssh connection failed
-	$_LOG "Relay [$_NAM:$_GWA] failed to start...restarting."
+	error "Relay [$_NAM:$_GWA] failed to start...restarting."
 fi
 
 
