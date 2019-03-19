@@ -113,7 +113,7 @@ function upt_pid
 
 function get_name
 {
-	"$_NAM@$_GWA"
+	echo "$_NAM@$_GWA"
 }
 
 function set_count
@@ -208,8 +208,7 @@ else
 	else
 
 		# connection no longer running, time to fire it up again
-		COUNT=$(get_count)
-		COUNT=$((COUNT+1))
+		COUNT=$(($(get_count)+1))
 
 		# save updated connection count
 		set_count $COUNT
@@ -241,6 +240,7 @@ if chk_pid; then
 
 	$_LOG "Forked relay [$(get_name)] to background [$(get_pid)]."
 
+	# setup space for tracking varaible
 	TRACK=0
 
 	# poll forever on SSH PID
