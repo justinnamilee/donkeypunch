@@ -123,7 +123,8 @@ function chk_pid
 function upt_pid
 {
 	# get the uptime for the PID
-	ps --no-headers -o etime -p $(get_pid) 2>/dev/null | sed -E 's/\s+//g' | \
+	ps --no-headers -o etime -p $(get_pid) 2>/dev/null | sed -E 's/\s+//g' |
+		# now make the output prettier~
 		perl -pe 'my ($T,$d) = reverse(split(q/-/)); $d || ($d = 0); $_ = sprintf(q/%d day%s, %s/, $d, (($d == 1) ? q// : q/s/), $T)'
 
 }
