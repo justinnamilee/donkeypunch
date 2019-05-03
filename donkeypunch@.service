@@ -10,6 +10,8 @@
 Description=DonkeyPunch [%I]
 Wants=network-online.target
 After=network.target network-online.target
+# attempt to restart forever
+StartLimitIntervalSec=0
 
 [Service]
 # do /etc/default/donkeypunch@yourhost for example
