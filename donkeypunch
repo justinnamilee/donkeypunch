@@ -49,14 +49,7 @@ _SERVICE_RESTART=7 # bad & restart
 _LOG="$(which logger) --id=$$ --tag $(basename $0)"
 
 # logging functions
-function debug {
-
-	if [ $_DBG ]; then
-
-		$_LOG -p daemon.debug "<DEBUG> $1"
-	fi
-}
-
+function debug { if [ $_DBG ]; then $_LOG -p daemon.debug "<DEBUG> $1"; fi }
 function error { $_LOG -p daemon.err "<ERROR> $1"; }
 function log { $_LOG -p daemon.info "$1"; }
 
@@ -68,12 +61,12 @@ log "Never forget to punch that donkey!"
 ##
 # look for our source file
 
-if [ -r $_ENV ]; then
+if [ -r "$_ENV" ]; then
 
 	debug "ENVIRONMENT: $_ENV"
 
 	# load that source file, yo
-	source $_ENV
+	source "$_ENV"
 else
 
 	error "Unable to load environment file [$_ENV]."
@@ -102,13 +95,13 @@ _DBG=                     # Set to 1 for debugging, clear for none.
 function set_pid
 {
 	# save pid lock file
-	echo $1 > $_PID
+	echo $1 > "$_PID"
 }
 
 function get_pid
 {
 	# get PID from lock file
-	cat $_PID 2>/dev/null
+	cat "$_PID" 2>/dev/null
 }
 
 function chk_pid
@@ -125,7 +118,6 @@ function upt_pid
 	ps --no-headers -o etime -p $(get_pid) 2>/dev/null | sed -E 's/\s+//g' |
 		# now make the output prettier~
 		perl -pe 'my ($T,$d) = reverse(split(q/-/)); $d || ($d = 0); $_ = sprintf(q/%d day%s, %s/, $d, (($d == 1) ? q// : q/s/), $T)'
-
 }
 
 function get_name
@@ -136,13 +128,13 @@ function get_name
 function set_count
 {
 	# set the count file
-	echo $1 > $_CNT
+	echo $1 > "$_CNT"
 }
 
 function get_count
 {
 	# get the current count from the count file
-	cat $_CNT 2>/dev/null
+	cat "$_CNT" 2>/dev/null
 }
 
 
@@ -151,12 +143,12 @@ function get_count
 
 function has_rw
 {
-	[ -r $1 ] && [ -w $1 ]
+	[ -r "$1" ] && [ -w "$1" ]
 }
 
 function dne_or_has_rw
 {
-	[ ! -e $1 ] || has_rw $1
+	[ ! -e "$1" ] || has_rw "$1"
 }
 
 
@@ -166,19 +158,19 @@ function dne_or_has_rw
 function service_stop
 {
 	# shit to do before we stop the service
-	rm $_PID > /dev/null 2>&1
-	rm $_CNT > /dev/null 2>&1
+	rm "$_PID" > /dev/null 2>&1
+	rm "$_CNT" > /dev/null 2>&1
 
 	# call exit when done with our stop code
 	exit $_SERVICE_STOP
 }
 
 
-## 
+##
 # start up checks!
 
 # check for read/write on our lock files
-if dne_or_has_rw $_CNT && dne_or_has_rw $_PID; then
+if dne_or_has_rw "$_CNT" && dne_or_has_rw "$_PID"; then
 
 	# just some basic checks... you know
 	if [ -z $(which ssh) ]; then
@@ -200,7 +192,7 @@ fi
 ##
 # check for "startup mode" / new instance
 
-if [ ! -e $_PID ]; then
+if [ ! -e "$_PID" ]; then
 
 	set_count 1
 
@@ -259,7 +251,7 @@ if chk_pid; then
 		sleep $_DEL
 
 		# update tracker info
-		TRACK=$((TRACK+1))
+		((TRACK++))
 		POLL="POLL: Relay alive [$(get_name)] for [$(upt_pid)] at [$(get_pid)]."
 
 		# check if we need to log it or debug log it
