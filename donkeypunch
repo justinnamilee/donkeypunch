@@ -26,13 +26,12 @@
 ####################################################
 
 
-sleep 1
-
-
 ##
 # the best kind of trap
 
 trap service_stop SIGTERM
+
+sleep 1
 
 
 ##
