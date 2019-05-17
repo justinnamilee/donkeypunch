@@ -73,7 +73,7 @@ function check_file
 
 function count_new_configs
 {
-	ls 2>/dev/null -Ubad1 -- "$SRC/$CONF_BASE/"*.conf | wc -l
+	ls 2>/dev/null -Ubad1 -- "$SRC/$CONF_BASE/"*$CONF_EXT | wc -l
 }
 
 function installed_configs
@@ -163,7 +163,7 @@ cp "$SRC/$CONF_BASE/"*.conf "$CNF"
 chmod 644 "$CNF/"*
 
 # install
-for i in "$CNF/"*; do
+for i in "$CNF/"*$CONF_EXT; do
 	j=$(basename "$i")
 	j="$SERVICE@${j%%$CONF_EXT}"
 
