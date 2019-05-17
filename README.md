@@ -8,7 +8,7 @@ DonkeyPunch is a `systemd` service that keeps a reverse SSH tunnelled port open 
 - Before using the installation script, be sure to setup your config(s) based on the `example.conf` file in `scr/share/conf/`:
   - Rename `example.conf` to `yourhost.conf`, then edit the file to your liking.
   - Anything with a `.conf` extension will get automatically installed as a service configuration by the `install` script.
-- Next, The easiest way to install and uninstall DonkeyPunch is with the install script:
+- Next, the easiest way to install and uninstall DonkeyPunch is with the install script:
   - Fisrt `cd donkeypunch` to enter the release directory.
   - Next `chmod +x bin/install` to allow execution.
   - Finally do `sudo bin/install` to install it.
