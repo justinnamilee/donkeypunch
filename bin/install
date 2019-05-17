@@ -27,6 +27,7 @@ SYSTEM_BASE="$SHARE_BASE/service"
 INSTALL_DIR=/opt
 SYSTEM_DIR=/etc/systemd/system
 SERVICE_DIR=/etc/default
+DOC_DIR=/usr/local/share/man/man1
 
 # targets
 SRC=src
@@ -169,7 +170,7 @@ for i in "$CNF/"*$CONF_EXT; do
 
 	if [ ! -e "$SERVICE_DIR/$j" ] || [ ! -z $UPDATE ]; then
 		rm -f "$SERVICE_DIR/$j" 2>/dev/null # blow it away if it exists
-		ln -s $i "$SERVICE_DIR/$j" 2>/dev/null || failure "ln -s $i '$SERVICE_DIR/$j'"
+		ln -s "$i" "$SERVICE_DIR/$j" 2>/dev/null || failure "ln -s '$i' '$SERVICE_DIR/$j'"
 	else
 		failure "cannot link '$i': file exists '$SERVICE_DIR/$j'"
 	fi
@@ -191,10 +192,22 @@ sed -i "s|__SERVICE_PATH__|$BIN/$SERVICE|g" "$SYS/$SYSTEM"
 
 if [ ! -e "$SYSTEM_DIR/$SYSTEM" ] || [ ! -z $UPDATE ]; then
 	rm -f "$SYSTEM_DIR/$SYSTEM" 2>/dev/null # blow it away if it exists
-	ln -s $i "$SYSTEM_DIR/$SYSTEM" 2>/dev/null || failure "ln -s $i '$SYSTEM_DIR/$i'"
+	ln -s "$SYS/$SYSTEM" "$SYSTEM_DIR/$SYSTEM" 2>/dev/null || failure "ln -s '$SYS/$SYSTEM' '$SYSTEM_DIR/$SYSTEM'"
 else
 	failure "cannot link '$i': file exists '$SERVICE_DIR/$j'"
 fi
+
+
+###
+# copy over the man page(s)
+
+cp "$SRC/$DOC_BASE/"* "$DOC"
+chmod 644 "$DOC/"*
+
+for i in "$DOC/"*; do
+	rm -f "$DOC_DIR/$(basename $i)" 2>/dev/null # blow away if it exists
+	ln -s "$i" "$DOC_DIR" 2>/dev/null || failure "ln -s '$i' '$DOC_DIR'"
+done
 
 
 ###
@@ -202,4 +215,3 @@ fi
 
 echo "Success!" >&2
 exit 0
-
