@@ -186,7 +186,7 @@ cp "$SRC/$SYSTEM_BASE/$SYSTEM" "$SYS"
 chmod 644 "$SYS/$SYSTEM"
 
 # swap the tokens for values and install
-sed -i "s|__ENV_PATH__|$CNF|g" "$SYS/$SYSTEM"
+sed -i "s|__ENV_PATH__|$SERVICE_DIR|g" "$SYS/$SYSTEM"
 sed -i "s|__SERVICE_PATH__|$BIN/$SERVICE|g" "$SYS/$SYSTEM"
 
 if [ ! -e "$SYSTEM_DIR/$SYSTEM" ] || [ ! -z $UPDATE ]; then
