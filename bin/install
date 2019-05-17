@@ -24,10 +24,9 @@ DOC_BASE="$SHARE_BASE/man"
 SYSTEM_BASE="$SHARE_BASE/service"
 
 # install directories
-TEST=/home/justin.lee/dump/donkeypunch/test
-INSTALL_DIR=$TEST/opt
-SYSTEM_DIR=$TEST/etc/systemd/system
-SERVICE_DIR=$TEST/etc/default
+INSTALL_DIR=/opt
+SYSTEM_DIR=/etc/systemd/system
+SERVICE_DIR=/etc/default
 
 # targets
 SRC=src
