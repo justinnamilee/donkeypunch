@@ -1,0 +1,205 @@
+#!/usr/bin/env bash
+
+# quit on errors
+set -e
+
+
+###
+# configuration variables
+
+# default flags: set = true, clear = false
+UPDATE=
+OVERRIDE=
+PURGE=
+
+# service name
+SERVICE=donkeypunch
+SYSTEM="$SERVICE@.service"
+
+# install bases
+BIN_BASE=bin
+SHARE_BASE=share
+CONF_BASE="$SHARE_BASE/conf"
+DOC_BASE="$SHARE_BASE/man"
+SYSTEM_BASE="$SHARE_BASE/service"
+
+# install directories
+TEST=/home/justin.lee/dump/donkeypunch/test
+INSTALL_DIR=$TEST/opt
+SYSTEM_DIR=$TEST/etc/systemd/system
+SERVICE_DIR=$TEST/etc/default
+
+# targets
+SRC=src
+CONF_EXT=.conf
+
+
+###
+# generated variables
+
+DST="$INSTALL_DIR/$SERVICE"
+BIN="$INSTALL_DIR/$SERVICE/$BIN_BASE"
+DOC="$INSTALL_DIR/$SERVICE/$DOC_BASE"
+CNF="$INSTALL_DIR/$SERVICE/$CONF_BASE"
+SHR="$INSTALL_DIR/$SERVICE/$SHARE_BASE"
+SYS="$INSTALL_DIR/$SERVICE/$SYSTEM_BASE"
+
+
+###
+# functions
+
+function failure
+{
+	echo -n "$SERVICE: install failure: $@: line " >&2; caller >&2
+
+	exit 1 # bad exit
+}
+
+function usage
+{
+	echo -e "$SERVICE: usage:\n\t\$ $(basename $0) [-u] [-o] [-p]" >&2
+
+	exit 2 # meh exit
+}
+
+function check_dir
+{
+	[ ! -z "$1" ] && [ -d "$1" ] && [ -w "$1" ] && [ -r "$1" ]
+}
+
+function check_file
+{
+	[ ! -z "$1" ] && [ -f "$1" ] && [ -r "$1" ]
+}
+
+function count_new_configs
+{
+	ls 2>/dev/null -Ubad1 -- "$SRC/$CONF_BASE/"*.conf | wc -l
+}
+
+function installed_configs
+{
+	ls 2>/dev/null -la "$SERVICE_DIR" |
+		grep $SERVICE | awk '/->/ { print $9 }'
+}
+
+
+###
+# getopts, yo
+
+while getopts ':uiop' OPT; do
+	case ${OPT} in
+		u	)
+				UPDATE=1 # enable overwriting
+			;;
+		i	)
+			;;
+		o	)
+				OVERRIDE=1 # disable root check
+			;;
+		p	)
+				PURGE=1 # kill everything with fire before installing
+
+				# kill all symlinks
+				rm -f "$SYSTEM_DIR/$SYSTEM"
+
+				for i in $(installed_configs); do
+					rm -f "$SERVICE_DIR/$i" 2>/dev/null
+				done
+
+				# kill all directories
+				rm -rf "$DST" 2>/dev/null
+
+				# we're done
+				exit 0
+			;;
+
+		h	) usage ;;
+		\?	) usage ;;
+	esac
+done
+
+
+###
+# startup checks
+
+# check our priviledges first like a good boi
+if [ $(id -u) -ne 0 ] && [ -z $OVERRIDE ]; then
+	failure 'elevation required'
+fi
+
+# check the various required directories and files
+check_dir "$SRC" || failure 'source dir'
+check_dir "$SRC/$SHARE_BASE" || failure 'source share dir'
+check_dir "$SRC/$BIN_BASE" || failure 'source bin dir'
+check_dir "$SRC/$DOC_BASE" || failure 'source doc dir'
+check_dir "$SRC/$CONF_BASE" || failure 'source config dir'
+check_dir "$INSTALL_DIR" || failure 'install dir'
+check_dir "$SYSTEM_DIR" || failure 'systemd dir'
+check_dir "$SERVICE_DIR" || failure 'service dir'
+check_file "$SRC/$BIN_BASE/$SERVICE" || failure 'service executable file'
+check_file "$SRC/$SYSTEM_BASE/$SYSTEM" || failure 'systemd service file'
+
+# make sure that at least one config has been written
+if [ $(count_new_configs) -lt 1 ]; then
+	failure 'no configs exist'
+fi
+
+# check and / or create the base installation directory
+if [ -d "$DST" ] && [ -z $UPDATE ]; then
+	failure 'install directory exists'
+else
+	# nothing has been created, create it all!!1
+	for d in "$DST" "$BIN" "$DOC" "$CNF" "$SHR" "$SYS"; do
+		mkdir -p "$d" 2>/dev/null || failure "mkdir $d"
+	done
+fi
+
+
+###
+# copy over the configs and install
+
+cp "$SRC/$CONF_BASE/"*.conf "$CNF"
+chmod 644 "$CNF/"*
+
+# install
+for i in "$CNF/"*; do
+	j=$(basename "$i")
+	j="$SERVICE@${j%%$CONF_EXT}"
+
+	if [ ! -e "$SERVICE_DIR/$j" ] || [ ! -z $UPDATE ]; then
+		rm -f "$SERVICE_DIR/$j" 2>/dev/null # blow it away if it exists
+		ln -s $i "$SERVICE_DIR/$j" 2>/dev/null || failure "ln -s $i '$SERVICE_DIR/$j'"
+	else
+		failure "cannot link '$i': file exists '$SERVICE_DIR/$j'"
+	fi
+done
+
+
+###
+# copy over the script and service definition
+
+cp "$SRC/$BIN_BASE/$SERVICE" "$BIN"
+chmod 755 "$BIN/$SERVICE"
+
+cp "$SRC/$SYSTEM_BASE/$SYSTEM" "$SYS"
+chmod 644 "$SYS/$SYSTEM"
+
+# swap the tokens for values and install
+sed -i "s|__ENV_PATH__|$CNF|g" "$SYS/$SYSTEM"
+sed -i "s|__SERVICE_PATH__|$BIN/$SERVICE|g" "$SYS/$SYSTEM"
+
+if [ ! -e "$SYSTEM_DIR/$SYSTEM" ] || [ ! -z $UPDATE ]; then
+	rm -f "$SYSTEM_DIR/$SYSTEM" 2>/dev/null # blow it away if it exists
+	ln -s $i "$SYSTEM_DIR/$SYSTEM" 2>/dev/null || failure "ln -s $i '$SYSTEM_DIR/$i'"
+else
+	failure "cannot link '$i': file exists '$SERVICE_DIR/$j'"
+fi
+
+
+###
+# we're done!
+
+echo "Success!" >&2
+exit 0
+
