@@ -15,8 +15,8 @@ StartLimitIntervalSec=0
 
 [Service]
 # do /etc/default/donkeypunch@yourhost for example
-Environment=_ENV=/etc/default/donkeypunch@%i
-ExecStart=/usr/local/bin/donkeypunch
+Environment=_ENV=__ENV_PATH__/donkeypunch@%i
+ExecStart=__SERVICE_PATH__
 RestartSec=45
 Restart=on-failure
 # exit status 1 is service failure, do not restart
