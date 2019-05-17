@@ -93,6 +93,7 @@ while getopts ':uiop' OPT; do
 				UPDATE=1 # enable overwriting
 			;;
 		i	)
+				# reserved for future use
 			;;
 		o	)
 				OVERRIDE=1 # disable root check
