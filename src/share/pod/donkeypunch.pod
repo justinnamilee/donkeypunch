@@ -1,0 +1,170 @@
+
+=head1 NAME
+
+donkeypunch - A C<systemd> service ssh tunneling.
+
+=head1 DESCRIPTION
+
+This service will keep a port on some local host forwarded to
+some remote host.  Coupled with SSH2's ability to allow other
+hosts to connect to forwarded ports this can effectively get
+around firewalls and other things in a much lighter manor than
+a full VPN setup.
+
+Each connection can be configured independently using C<systemd>'s
+intrinsic ability for multi-configuration services.  Connections
+should be installed to C</etc/default> (by default) and have the
+form C<donkeypunch@hostname>.  You can use any identifier you
+want, but for most setups hostname is unique enough.
+
+The example configuration (C<example.conf>) forwards the SSH
+port of C<localhost> to some remote server where it will be
+accessible on port C<10022> by default.  The only parameters
+that are required on the default example are C<_USR> and C<_GWA>.
+The C<_USR> parameter will configure the username for SSH
+connections, the C<_GWA> parameter will configure the remote
+servers hostname / IP address.
+
+Once you have those configured you will need to setup the user
+as a B<RESTRICTED ACCOUNT> on the remote server -- because you will
+need to setup an unencrypted key for this user to forward ports and
+reconnect without intervention from you.  For tips about setting up
+a restricted port forwarding account on linux please consult the
+interwebz.  Once you have the account setup and generated an
+unencrypted keypair save, the private key on the local host as
+C</etc/ssh/relay/relay.id.KEY_TYPE> and set the parameter in the
+configuration.  The public key should be saved in on the remote
+server in the appropriate C<authorized_keys> file.
+
+For security donkeypunch by default needs the SSH Known Hosts
+file to be properly setup for the server you are attempting
+to connect to.  The easiest way to get this is to attempt
+a connection to the remote server then copy the Known Hosts
+file to C</etc/ssh/relay/known_hosts>.  This prevents someone
+from attempting to man-in-the-middle as if the remote host
+changes donkeypunch will not allow connection.
+
+=head1 OPTIONS
+
+Now for a full description of the configuration options found
+in a donkeypunch configuration file.
+
+=over 12
+
+=item C<_NAM>
+
+A unique name for this configuration.  This will help you track
+it in your system's C<syslog> or equivalent as all entries will
+reference this unique name.  A good practice is to make this the
+same as the C<donkeypunch@UNIQUE_IDENTIFIER> configuration file.
+
+=item C<_STO>
+
+Where will the Known Hosts and Private Key be stored?  This
+does not have to be used if they will be stored in different
+locations.
+
+=item C<_KNW>
+
+Where will the Known Hosts file be stored?  By default is based
+off of C<_STO>, but does not have to be.  Must be readable by
+C<systemd> if that does not run as C<root>.
+
+=item C<_SID>
+
+Where will the Private Key be stored?  By default is based off
+of C<_STO>, but does not have to be.  This must be unencrypted
+as you will not be able to decrypt it when the connection is
+started.  Must be readable by C<systemd> if that does not run
+as C<root>.
+
+=item C<_USR>
+
+The username that SSH should use when connecting to the remote
+server.  This should be a B<RESTRICTED> account on the remote
+server to prevent many security vulnerabilities.
+
+=item C<_GWA>
+
+The remote server that donkeypunch should connect to.  This can
+be an IP address or a hostname that is resolvable by C<systemd>.
+
+=item C<_GPW>
+
+The remote server's SSH port.  Default is 22.  Match it to your
+remote server's SSH configuration.
+
+=item C<_GTO>
+
+The timeout for the SSH connection to the remote server.  Default
+is 60 seconds, which is a happy medium.  The lowest recommended
+would be 30 seconds or so.
+
+=item C<_GFW>
+
+The destination for the forwarded port on the remote server.  This
+is the port you will use to connect through the remote server to
+your local host running C<donkeypunch> (or whatever C<donkeypunch>
+is forwarding).
+
+=item C<_FWA>
+
+The hostname or IP address of what you want to forward.  By default
+this is localhost, it could be anything routable on your local host's
+network.
+
+=item C<_FWP>
+
+The port you want to forward out to the remote server.  By default
+this is set to forward the localhost's default SSH port out to
+the remote host.
+
+=back
+
+=head1 ADVANCED OPTIONS
+
+After the above options comes the extended SSH options that get
+passed directly to the SSH command.  If you're feeling adventurous
+you can muck around with C<_OPT>.  Each option should go on a newline,
+they get smushed by the C<sed> call at the very end -- do not touch
+that.
+
+=over 12
+
+=item C<ExitOnForwardFailure>
+
+This is really the core of why this can constantly keep a tunnel
+open.  Without this line, donkeypunch would be able to connect
+B<without> opening a tunnel...what would be the point.
+
+=item C<UserKnownHostsFile>
+
+This helps prevent someone bamboozling you with a bad host.
+
+=item C<ServerAliveInterval>
+
+How often SSH will check before disconnecting from a
+non-connected host.  Then C<donkeypunch> will wait a max
+of 45 seconds before trying to connect again.
+
+=item C<nxNT>
+
+These are for optimal tunnel connecting, probably don't
+change them, but I'm not your boss.
+
+=item C<More and MORE!>
+
+You can use any long-form SSH option in this file.
+
+=back
+
+=head1 AUTHOR
+
+Justin Lee - L<https://taiz.me>
+
+=head1 SEE ALSO
+
+L<ssh>, L<systemd>
+
+=cut
+
