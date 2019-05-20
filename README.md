@@ -12,6 +12,7 @@ DonkeyPunch is a `systemd` service that keeps a reverse SSH tunnelled port open 
   - Fisrt `cd donkeypunch` to enter the release directory.
   - Next `chmod +x bin/install` to allow execution.
   - Finally do `sudo bin/install` to install it.
+  - Alternatively you can do `sudo sh setup.sh` which has the previous two steps included.
 
 ---
 
