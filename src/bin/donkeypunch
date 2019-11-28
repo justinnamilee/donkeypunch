@@ -109,7 +109,7 @@ function chk_pid
 	CHECK=$(get_pid)
 
 	# is the process alive and well?
-	[ $CHECK ] && kill -0 $CHECK > /dev/null 2>&1
+	[ ! -z $CHECK ] && kill -0 $CHECK > /dev/null 2>&1
 }
 
 function upt_pid
